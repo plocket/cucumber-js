@@ -33,11 +33,33 @@ Otherwise the test suite may end prematurely or hang indefinitely.
 
 ```javascript
 var {Before, Given} = require('cucumber');
-var Promise = require('bluebird');
 
-Given('the operation completes within {n} minutes', {timeout: -1}, function(minutes) {
-  const milliseconds = (minutes + 1) * 60 * 1000
-  const message = `operation did not complete within ${minutes} minutes`
-  return Promise(this.verifyOperationComplete()).timeout(milliseconds, message);
-});
+Given('the operation completes within {n} minutes', {timeout: -1}, async( minutes ) {
+  const custom_wait_time = minutes * 60 * 1000;
+  const promise = new Promise(function( resolve, reject ) {
+
+    // Set up the timeout and get its id
+    const custom_timeout = setTimeout(function() {
+      reject(`Operation did not complete within ${ minutes } ms`);
+    }, custom_wait_time);
+
+    // Do your stuff inside a self-invoking anonymous async function
+    (async function() {
+      try {
+        const result = await myAsyncStuff();
+        resolve( result );
+      } catch (err) {
+        reject( err );
+      } finally {
+        clearTimeout( custom_timeout );  // prevent short hang at end of tests
+      }
+    })();
+
+  });  // ends promise
+
+  const the_good_stuff = await promise;
+  
+  // Do other stuff as long as it will also definitely finish
+  console.log(`Everything from here on out has to finish as well.`);
+});  // Ends Given()
 ```
